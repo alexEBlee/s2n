@@ -23,6 +23,13 @@
 #include "tls/s2n_cipher_preferences.h"
 #include "utils/s2n_safety.h"
 
+// OS X does not have clock_gettime, use clock_get_time
+#if defined(__APPLE__) && defined(__MACH__)
+#include <mach/clock.h>
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#endif
+
 #if defined(CLOCK_MONOTONIC_RAW)
 #define S2N_CLOCK_HW CLOCK_MONOTONIC_RAW
 #else
@@ -31,11 +38,31 @@
 
 #define S2N_CLOCK_SYS CLOCK_REALTIME
 
+static void get_time(struct timespec *ts, uint8_t is_monotonic) {
+#if defined(__APPLE__) && defined(__MACH__)
+
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    ts->tv_sec = mts.tv_sec;
+    ts->tv_nsec = mts.tv_nsec;
+#else 
+    if(is_monotonic) {
+        clock_gettime(S2N_CLOCK_HW, ts);
+    } else {
+        clock_gettime(S2N_CLOCK_SYS, ts);
+    }
+#endif  
+}
+
 static int monotonic_clock(void *data, uint64_t *nanoseconds)
 {
     struct timespec current_time;
 
-    GUARD(clock_gettime(S2N_CLOCK_HW, &current_time));
+    get_time(&current_time, 1);
 
     *nanoseconds = current_time.tv_sec * 1000000000;
     *nanoseconds += current_time.tv_nsec;
@@ -47,7 +74,7 @@ static int wall_clock(void *data, uint64_t *nanoseconds)
 {
     struct timespec current_time;
 
-    GUARD(clock_gettime(S2N_CLOCK_SYS, &current_time));
+    get_time(&current_time, 0);
 
     *nanoseconds = current_time.tv_sec * 1000000000;
     *nanoseconds += current_time.tv_nsec;
