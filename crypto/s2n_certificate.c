@@ -38,7 +38,7 @@ int s2n_cert_set_cert_type(struct s2n_cert *cert, s2n_cert_type cert_type)
 
 int s2n_create_cert_chain_from_stuffer(struct s2n_cert_chain *cert_chain_out, struct s2n_stuffer *chain_in_stuffer)
 {
-    struct s2n_stuffer cert_out_stuffer;
+    struct s2n_stuffer cert_out_stuffer = {{0}};
     GUARD(s2n_stuffer_growable_alloc(&cert_out_stuffer, 2048));
 
     struct s2n_cert **insert = &cert_chain_out->head;
@@ -53,7 +53,7 @@ int s2n_create_cert_chain_from_stuffer(struct s2n_cert_chain *cert_chain_out, st
             }
             break;
         }
-        struct s2n_blob mem;
+        struct s2n_blob mem = {0};
         GUARD(s2n_alloc(&mem, sizeof(struct s2n_cert)));
         new_node = (struct s2n_cert *)(void *)mem.data;
 
@@ -87,7 +87,7 @@ int s2n_cert_chain_and_key_set_cert_chain_from_stuffer(struct s2n_cert_chain_and
 
 int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *chain_and_key, const char *cert_chain_pem)
 {
-    struct s2n_stuffer chain_in_stuffer;
+    struct s2n_stuffer chain_in_stuffer = {{0}};
 
     /* Turn the chain into a stuffer */
     GUARD(s2n_stuffer_alloc_ro_from_string(&chain_in_stuffer, cert_chain_pem));
@@ -101,7 +101,7 @@ int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *chain_a
 int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *chain_and_key, const char *private_key_pem)
 {
     struct s2n_stuffer key_in_stuffer, key_out_stuffer;
-    struct s2n_blob key_blob;
+    struct s2n_blob key_blob = {0};
 
     GUARD(s2n_pkey_zero_init(chain_and_key->private_key));
 
@@ -172,7 +172,7 @@ struct s2n_cert_chain_and_key *s2n_cert_chain_and_key_new(const char *cert_chain
     GUARD_GOTO(s2n_cert_chain_and_key_set_private_key(chain_and_key, private_key_pem), failed);
 
     /* Parse the leaf cert for the public key and certificate type */
-    struct s2n_pkey public_key;
+    struct s2n_pkey public_key = {{{0}}};
     s2n_cert_type cert_type;
     GUARD_GOTO(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &chain_and_key->cert_chain->head->raw), failed);
     GUARD_GOTO(s2n_cert_set_cert_type(chain_and_key->cert_chain->head, cert_type), failed);
