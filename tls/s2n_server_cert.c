@@ -56,7 +56,6 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
         S2N_ERROR(S2N_ERR_CERT_TYPE_UNSUPPORTED);
     }
     
-    conn->secure.client_cert_type = cert_type;
     s2n_pkey_setup_for_type(&public_key, cert_type);
     conn->secure.server_public_key = public_key;
 

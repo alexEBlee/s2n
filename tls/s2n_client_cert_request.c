@@ -31,7 +31,8 @@ int s2n_client_cert_req_recv(struct s2n_connection *conn)
 {
     struct s2n_stuffer *in = &conn->handshake.io;
 
-    GUARD(s2n_recv_client_cert_preferences(in, &conn->secure.client_cert_type));
+    s2n_cert_type cert_type_out;    
+    GUARD(s2n_recv_client_cert_preferences(in, &cert_type_out));
 
     if(conn->actual_protocol_version == S2N_TLS12){
         s2n_recv_supported_signature_algorithms(conn, in, &conn->handshake_params.server_sig_hash_algs);

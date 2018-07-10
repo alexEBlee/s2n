@@ -31,19 +31,19 @@
 int s2n_client_cert_recv(struct s2n_connection *conn)
 {
     struct s2n_stuffer *in = &conn->handshake.io;
-    struct s2n_blob client_cert_chain;
+    struct s2n_blob cert_chain_blob;
 
-    GUARD(s2n_stuffer_read_uint24(in, &client_cert_chain.size));
+    GUARD(s2n_stuffer_read_uint24(in, &cert_chain_blob.size));
 
-    S2N_ERROR_IF(client_cert_chain.size > s2n_stuffer_data_available(in), S2N_ERR_BAD_MESSAGE);
+    S2N_ERROR_IF(cert_chain_blob.size > s2n_stuffer_data_available(in), S2N_ERR_BAD_MESSAGE);
 
-    if (client_cert_chain.size == 0) {
+    if (cert_chain_blob.size == 0) {
         GUARD(s2n_conn_set_handshake_no_client_cert(conn));
         return 0;
     }
 
-    client_cert_chain.data = s2n_stuffer_raw_read(in, client_cert_chain.size);
-    notnull_check(client_cert_chain.data);
+    cert_chain_blob.data = s2n_stuffer_raw_read(in, cert_chain_blob.size);
+    notnull_check(cert_chain_blob.data);
 
     s2n_cert_public_key public_key;
     GUARD(s2n_pkey_zero_init(&public_key));
@@ -52,23 +52,17 @@ int s2n_client_cert_recv(struct s2n_connection *conn)
 
     /* Determine the Cert Type, Verify the Cert, and extract the Public Key */
     S2N_ERROR_IF(s2n_x509_validator_validate_cert_chain(&conn->x509_validator, conn,
-                                                 client_cert_chain.data, client_cert_chain.size,
+                                                 cert_chain_blob.data, cert_chain_blob.size,
                                                         &cert_type, &public_key) != S2N_CERT_OK, S2N_ERR_CERT_UNTRUSTED);
-
-    switch (cert_type) {
-    case S2N_CERT_TYPE_RSA_SIGN:
-    case S2N_CERT_TYPE_ECDSA_SIGN:
-        conn->secure.client_cert_type = cert_type;
-        break;
-    default:
-        S2N_ERROR(S2N_ERR_CERT_TYPE_UNSUPPORTED);
-    }
-
-    s2n_pkey_setup_for_type(&public_key, cert_type);
     
+    s2n_pkey_setup_for_type(&public_key, cert_type);
     GUARD(s2n_pkey_check_key_exists(&public_key));
-    GUARD(s2n_dup(&client_cert_chain, &conn->secure.client_cert_chain));
     conn->secure.client_public_key = public_key;
+    
+    struct s2n_stuffer cert_chain_stuffer;
+    s2n_stuffer_init(&cert_chain_stuffer, &cert_chain_blob);
+
+    s2n_create_cert_chain_from_stuffer(&conn->secure.client_cert_chain->cert_chain, &cert_chain_stuffer);
     
     return 0;
 }

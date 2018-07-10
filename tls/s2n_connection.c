@@ -289,7 +289,6 @@ static int s2n_connection_wipe_keys(struct s2n_connection *conn)
     s2n_x509_validator_wipe(&conn->x509_validator);
     GUARD(s2n_dh_params_free(&conn->secure.server_dh_params));
     GUARD(s2n_ecc_params_free(&conn->secure.server_ecc_params));
-    GUARD(s2n_free(&conn->secure.client_cert_chain));
     GUARD(s2n_free(&conn->ct_response));
 
     return 0;
@@ -683,10 +682,14 @@ int s2n_connection_get_client_cert_chain(struct s2n_connection *conn, uint8_t **
     notnull_check(conn);
     notnull_check(der_cert_chain_out);
     notnull_check(cert_chain_len);
-    notnull_check(conn->secure.client_cert_chain.data);
+    notnull_check(conn->secure.client_cert_chain);
 
-    *der_cert_chain_out = conn->secure.client_cert_chain.data;
-    *cert_chain_len = conn->secure.client_cert_chain.size;
+    *cert_chain_len = conn->secure.client_cert_chain->cert_chain.chain_size;
+
+    struct s2n_stuffer cert_chain_stuffer;
+    GUARD(s2n_send_cert_chain(&cert_chain_stuffer, &conn->secure.client_cert_chain->cert_chain)); 
+    GUARD(s2n_stuffer_reread(&cert_chain_stuffer));
+    GUARD(s2n_stuffer_read_bytes(&cert_chain_stuffer, *der_cert_chain_out, *cert_chain_len));
 
     return 0;
 }

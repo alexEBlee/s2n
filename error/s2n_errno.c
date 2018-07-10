@@ -135,7 +135,7 @@ struct s2n_error_translation EN[] = {
     {S2N_ERR_INVALID_NONCE_TYPE, "Invalid AEAD nonce type"},
     {S2N_ERR_UNIMPLEMENTED, "Unimplemented feature"},
     {S2N_ERR_CERT_UNTRUSTED, "Certificate is untrusted"},
-    {S2N_ERR_CERT_TYPE_UNSUPPORTED, "Certificate Type is unsupported"},
+    {S2N_ERR_CERT_TYPE_UNSUPPORTED, "Certificate type is unsupported"},
     {S2N_ERR_CANCELLED, "handshake was cancelled"},
     {S2N_ERR_INVALID_MAX_FRAG_LEN, "invalid Maximum Fragmentation Length encountered"},
     {S2N_ERR_MAX_FRAG_LEN_MISMATCH, "Negotiated Maximum Fragmentation Length from server does not match the requested length by client"},

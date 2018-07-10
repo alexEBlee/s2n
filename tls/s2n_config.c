@@ -422,12 +422,12 @@ int s2n_config_set_verification_ca_location(struct s2n_config *config, const cha
     return err_code;
 }
 
-int s2n_config_add_cert_chain_from_stuffer(struct s2n_config *config, struct s2n_stuffer *chain_in_stuffer)
+int s2n_create_cert_chain_from_stuffer(struct s2n_cert_chain *cert_chain_out, struct s2n_stuffer *chain_in_stuffer)
 {
     struct s2n_stuffer cert_out_stuffer;
     GUARD(s2n_stuffer_growable_alloc(&cert_out_stuffer, 2048));
 
-    struct s2n_cert **insert = &config->cert_and_key_pairs->cert_chain.head;
+    struct s2n_cert **insert = &cert_chain_out->head;
     uint32_t chain_size = 0;
     do {
         struct s2n_cert *new_node;
@@ -454,15 +454,21 @@ int s2n_config_add_cert_chain_from_stuffer(struct s2n_config *config, struct s2n
     } while (s2n_stuffer_data_available(chain_in_stuffer));
 
     GUARD(s2n_stuffer_free(&cert_out_stuffer));
-
+    
     /* Leftover data at this point means one of two things:
      * A bug in s2n's PEM parsing OR a malformed PEM in the user's chain.
      * Be conservative and fail instead of using a partial chain.
      */
     S2N_ERROR_IF(s2n_stuffer_data_available(chain_in_stuffer) > 0, S2N_ERR_INVALID_PEM);
-    config->cert_and_key_pairs->cert_chain.chain_size = chain_size;
-
+    
+    cert_chain_out->chain_size = chain_size;
+    
     return 0;
+}
+
+int s2n_config_add_cert_chain_from_stuffer(struct s2n_config *config, struct s2n_stuffer *chain_in_stuffer)
+{
+    return s2n_create_cert_chain_from_stuffer(&config->cert_and_key_pairs->cert_chain, chain_in_stuffer);
 }
 
 int s2n_config_add_cert_chain(struct s2n_config *config, const char *cert_chain_pem)
