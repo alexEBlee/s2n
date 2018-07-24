@@ -31,7 +31,10 @@ int s2n_client_cert_req_recv(struct s2n_connection *conn)
 {
     struct s2n_stuffer *in = &conn->handshake.io;
 
-    GUARD(s2n_recv_client_cert_preferences(in, &conn->secure.client_cert_type));
+    /* Currently ignored when we send the client cert in s2n_client_cert_send.
+     * Should be added to s2n_handshake_parameters when we add "smart" cert selection */
+    s2n_cert_type preferred_cert_type;
+    GUARD(s2n_recv_client_cert_preferences(in, &preferred_cert_type));
 
     if(conn->actual_protocol_version == S2N_TLS12){
         s2n_recv_supported_signature_algorithms(conn, in, &conn->handshake_params.server_sig_hash_algs);
@@ -39,8 +42,8 @@ int s2n_client_cert_req_recv(struct s2n_connection *conn)
         s2n_hash_algorithm chosen_hash_algorithm;
         s2n_signature_algorithm chosen_signature_algorithm;
         GUARD(s2n_set_signature_hash_pair_from_preference_list(conn, &conn->handshake_params.server_sig_hash_algs, &chosen_hash_algorithm, &chosen_signature_algorithm));
-        conn->secure.client_cert_hash_algorithm = chosen_hash_algorithm;
-        conn->secure.client_cert_sig_alg = chosen_signature_algorithm;
+        conn->secure.conn_hash_alg = chosen_hash_algorithm;
+        conn->secure.conn_sig_alg = chosen_signature_algorithm;
     }
     uint16_t cert_authorities_len = 0;
     GUARD(s2n_stuffer_read_uint16(in, &cert_authorities_len));

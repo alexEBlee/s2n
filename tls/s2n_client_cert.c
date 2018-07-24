@@ -58,7 +58,7 @@ int s2n_client_cert_recv(struct s2n_connection *conn)
     switch (cert_type) {
     case S2N_CERT_TYPE_RSA_SIGN:
     case S2N_CERT_TYPE_ECDSA_SIGN:
-        conn->secure.client_cert_type = cert_type;
+        conn->secure.peer_cert_type = cert_type;
         break;
     default:
         S2N_ERROR(S2N_ERR_CERT_TYPE_UNSUPPORTED);
@@ -67,7 +67,7 @@ int s2n_client_cert_recv(struct s2n_connection *conn)
     s2n_pkey_setup_for_type(&public_key, cert_type);
     
     GUARD(s2n_pkey_check_key_exists(&public_key));
-    GUARD(s2n_dup(&client_cert_chain, &conn->secure.client_cert_chain));
+    GUARD(s2n_dup(&client_cert_chain, &conn->secure.peer_cert_chain));
     conn->secure.client_public_key = public_key;
     
     return 0;

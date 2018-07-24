@@ -71,8 +71,8 @@ int s2n_client_cert_verify_send(struct s2n_connection *conn)
     s2n_signature_algorithm chosen_signature_alg = S2N_SIGNATURE_RSA;
 
     if(conn->actual_protocol_version == S2N_TLS12){
-        chosen_hash_alg = conn->secure.client_cert_hash_algorithm;
-        chosen_signature_alg = conn->secure.client_cert_sig_alg;
+        chosen_hash_alg = conn->secure.conn_hash_alg;
+        chosen_signature_alg = conn->secure.conn_sig_alg;
 
         GUARD(s2n_stuffer_write_uint8(out, (uint8_t) chosen_hash_alg));
         GUARD(s2n_stuffer_write_uint8(out, (uint8_t) chosen_signature_alg));
