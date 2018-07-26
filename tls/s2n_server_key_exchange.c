@@ -153,7 +153,6 @@ int s2n_server_key_send(struct s2n_connection *conn)
     } else {
         GUARD(s2n_dhe_server_key_send(conn));
     }
-
     return 0;
 }
 
@@ -179,7 +178,7 @@ static int s2n_ecdhe_server_key_send(struct s2n_connection *conn)
     GUARD(s2n_hash_update(&conn->secure.signature_hash, conn->secure.server_random, S2N_TLS_RANDOM_DATA_LEN));
     GUARD(s2n_hash_update(&conn->secure.signature_hash, ecdhparams.data, ecdhparams.size));
 
-    GUARD(s2n_write_signature_blob(out, &conn->config->cert_and_key_pairs->private_key, &conn->secure.signature_hash));
+    GUARD(s2n_write_signature_blob(out, conn->config->cert_and_key_pairs->private_key, &conn->secure.signature_hash));
 
     return 0;
 }
@@ -208,7 +207,7 @@ static int s2n_dhe_server_key_send(struct s2n_connection *conn)
     GUARD(s2n_hash_update(&conn->secure.signature_hash, conn->secure.server_random, S2N_TLS_RANDOM_DATA_LEN));
     GUARD(s2n_hash_update(&conn->secure.signature_hash, serverDHparams.data, serverDHparams.size));
 
-    GUARD(s2n_write_signature_blob(out, &conn->config->cert_and_key_pairs->private_key, &conn->secure.signature_hash));
+    GUARD(s2n_write_signature_blob(out, conn->config->cert_and_key_pairs->private_key, &conn->secure.signature_hash));
     
     return 0;
 }

@@ -18,6 +18,7 @@
 
 #include "error/s2n_errno.h"
 
+#include "crypto/s2n_certificate.h"
 #include "crypto/s2n_fips.h"
 
 #include "tls/s2n_cipher_preferences.h"
@@ -238,32 +239,21 @@ struct s2n_config *s2n_config_new(void)
 int s2n_config_free_cert_chain_and_key(struct s2n_config *config)
 {
 
-    struct s2n_blob b = {
-        .data = (uint8_t *) config->cert_and_key_pairs,
-        .size = sizeof(struct s2n_cert_chain_and_key)
-    };
-
-    /* If there were cert and key pairs set, walk the chain and free the certs */
     if (config->cert_and_key_pairs) {
-        struct s2n_cert *node = config->cert_and_key_pairs->cert_chain.head;
-        while (node) {
-            struct s2n_blob n = {
-                .data = (uint8_t *) node,
-                .size = sizeof(struct s2n_cert)
-            };
-            /* Free the cert */
-            GUARD(s2n_free(&node->raw));
-            /* Advance to next */
-            node = node->next;
-            /* Free the node */
-            GUARD(s2n_free(&n));
-        }
-        GUARD(s2n_pkey_free(&config->cert_and_key_pairs->private_key));
+        struct s2n_blob b = {
+            .data = (uint8_t *) config->cert_and_key_pairs,
+            .size = sizeof(struct s2n_cert_chain_and_key)
+        };
+
         GUARD(s2n_free(&config->cert_and_key_pairs->ocsp_status));
         GUARD(s2n_free(&config->cert_and_key_pairs->sct_list));
+
+        /* Freeing the cert chain nodes and private key are the responsibility of
+         * the application by calling s2n_cert_chain_and_key_free. */
+        
+        GUARD(s2n_free(&b));
     }
 
-    GUARD(s2n_free(&b));
     return 0;
 }
 
@@ -427,7 +417,7 @@ int s2n_config_add_cert_chain_from_stuffer(struct s2n_config *config, struct s2n
     struct s2n_stuffer cert_out_stuffer;
     GUARD(s2n_stuffer_growable_alloc(&cert_out_stuffer, 2048));
 
-    struct s2n_cert **insert = &config->cert_and_key_pairs->cert_chain.head;
+    struct s2n_cert **insert = &config->cert_and_key_pairs->cert_chain->head;
     uint32_t chain_size = 0;
     do {
         struct s2n_cert *new_node;
@@ -460,7 +450,7 @@ int s2n_config_add_cert_chain_from_stuffer(struct s2n_config *config, struct s2n
      * Be conservative and fail instead of using a partial chain.
      */
     S2N_ERROR_IF(s2n_stuffer_data_available(chain_in_stuffer) > 0, S2N_ERR_INVALID_PEM);
-    config->cert_and_key_pairs->cert_chain.chain_size = chain_size;
+    config->cert_and_key_pairs->cert_chain->chain_size = chain_size;
 
     return 0;
 }
@@ -478,12 +468,13 @@ int s2n_config_add_cert_chain(struct s2n_config *config, const char *cert_chain_
     return rc;
 }
 
+// TODO: clean these up
 int s2n_config_add_private_key(struct s2n_config *config, const char *private_key_pem)
 {
     struct s2n_stuffer key_in_stuffer, key_out_stuffer;
     struct s2n_blob key_blob;
 
-    GUARD(s2n_pkey_zero_init(&config->cert_and_key_pairs->private_key));
+    GUARD(s2n_pkey_zero_init(config->cert_and_key_pairs->private_key));
 
     /* Put the private key pem in a stuffer */
     GUARD(s2n_stuffer_alloc_ro_from_string(&key_in_stuffer, private_key_pem));
@@ -497,42 +488,33 @@ int s2n_config_add_private_key(struct s2n_config *config, const char *private_ke
     notnull_check(key_blob.data);
 
     /* Get key type and create appropriate key context */
-    GUARD(s2n_asn1der_to_private_key(&config->cert_and_key_pairs->private_key, &key_blob));
+    GUARD(s2n_asn1der_to_private_key(config->cert_and_key_pairs->private_key, &key_blob));
     GUARD(s2n_stuffer_free(&key_out_stuffer));
 
     return 0;
 }
 
-int s2n_config_add_cert_chain_and_key(struct s2n_config *config, const char *cert_chain_pem, const char *private_key_pem)
+int s2n_config_add_cert_chain_and_key(struct s2n_config *config, struct s2n_cert_chain_and_key *cert_key_pair)
 {
-    struct s2n_blob mem;
+    struct s2n_blob mem = {0};
 
     /* Allocate the memory for the chain and key struct */
     GUARD(s2n_alloc(&mem, sizeof(struct s2n_cert_chain_and_key)));
     config->cert_and_key_pairs = (struct s2n_cert_chain_and_key *)(void *)mem.data;
-    config->cert_and_key_pairs->cert_chain.head = NULL;
-
+    
     memset(&config->cert_and_key_pairs->ocsp_status, 0, sizeof(config->cert_and_key_pairs->ocsp_status));
     memset(&config->cert_and_key_pairs->sct_list, 0, sizeof(config->cert_and_key_pairs->sct_list));
-    GUARD(s2n_pkey_zero_init(&config->cert_and_key_pairs->private_key));
 
-    GUARD(s2n_config_add_cert_chain(config, cert_chain_pem));
-    GUARD(s2n_config_add_private_key(config, private_key_pem));
+    config->cert_and_key_pairs->cert_chain = cert_key_pair->cert_chain;
+    config->cert_and_key_pairs->private_key = cert_key_pair->private_key;
 
-    /* Parse the leaf cert for the public key and certificate type */
-    struct s2n_pkey public_key;
-    s2n_cert_type cert_type;
-    GUARD(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &config->cert_and_key_pairs->cert_chain.head->raw));
-    GUARD(s2n_cert_set_cert_type(config->cert_and_key_pairs->cert_chain.head, cert_type));
-
-    /* Validate the leaf cert's public key matches the provided private key */
-    int key_match_ret = s2n_pkey_match(&public_key, &config->cert_and_key_pairs->private_key);
-    GUARD(s2n_pkey_free(&public_key));
-    if (key_match_ret < 0) {
-        /* s2n_errno already set */
-        return -1;
-    }
-
+    //if(cert_key_pair->ocsp_status.data != NULL) {
+        GUARD(s2n_dup(&cert_key_pair->ocsp_status, &config->cert_and_key_pairs->ocsp_status));
+    //}
+   
+    //if(cert_key_pair->sct_list.data != NULL) {
+        GUARD(s2n_dup(&cert_key_pair->sct_list, &config->cert_and_key_pairs->sct_list));
+    //}
     return 0;
 }
 
@@ -621,6 +603,8 @@ int s2n_config_set_cache_delete_callback(struct s2n_config *config, int (*cache_
 int s2n_config_set_extension_data(struct s2n_config *config, s2n_tls_extension_type type, const uint8_t *data, uint32_t length)
 {
     notnull_check(config);
+    struct s2n_cert_chain_and_key *chain_and_key = config->cert_and_key_pairs;
+    notnull_check(chain_and_key);
 
     switch (type) {
         case S2N_EXTENSION_CERTIFICATE_TRANSPARENCY:
@@ -645,6 +629,8 @@ int s2n_config_set_extension_data(struct s2n_config *config, s2n_tls_extension_t
             S2N_ERROR(S2N_ERR_UNRECOGNIZED_EXTENSION);
     }
 
+    //TODO: map to s2n_config's notion of chains and keys
+    
     return 0;
 }
 
@@ -680,9 +666,10 @@ int s2n_config_get_cert_type(struct s2n_config *config, s2n_cert_type *cert_type
 {
     notnull_check(config);
     notnull_check(config->cert_and_key_pairs);
-    notnull_check(config->cert_and_key_pairs->cert_chain.head);
+    notnull_check(config->cert_and_key_pairs->cert_chain);
+    notnull_check(config->cert_and_key_pairs->cert_chain->head);
 
-    *cert_type = config->cert_and_key_pairs->cert_chain.head->cert_type;
+    *cert_type = config->cert_and_key_pairs->cert_chain->head->cert_type;
     
     return 0;
 }

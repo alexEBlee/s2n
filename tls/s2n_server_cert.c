@@ -58,12 +58,11 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
     
     s2n_pkey_setup_for_type(&public_key, cert_type);
     conn->secure.server_public_key = public_key;
-
     return 0;
 }
 
 int s2n_server_cert_send(struct s2n_connection *conn)
 {
-    GUARD(s2n_send_cert_chain(&conn->handshake.io, &conn->server->chosen_cert_chain->cert_chain));
+    GUARD(s2n_send_cert_chain(&conn->handshake.io, conn->server->chosen_cert_chain->cert_chain));
     return 0;
 }
