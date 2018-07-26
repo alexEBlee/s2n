@@ -643,8 +643,14 @@ int main(int argc, char *const *argv)
         private_key = default_private_key;
     }
 
-    if (s2n_config_add_cert_chain_and_key(config, certificate_chain, private_key) < 0) {
+    struct s2n_cert_chain_and_key *chain_and_key = s2n_cert_chain_and_key_new(certificate_chain, private_key);
+    if (!chain_and_key) {
         print_s2n_error("Error getting certificate/key");
+        exit(1);
+    }
+    
+    if (s2n_config_add_cert_chain_and_key(config, chain_and_key) < 0) {
+        print_s2n_error("Error setting certificate/key");
         exit(1);
     }
 
