@@ -80,30 +80,30 @@ int s2n_create_cert_chain_from_stuffer(struct s2n_cert_chain *cert_chain_out, st
     return 0;
 }
 
-int s2n_cert_chain_and_key_set_cert_chain_from_stuffer(struct s2n_cert_chain_and_key *cert_and_key, struct s2n_stuffer *chain_in_stuffer)
+int s2n_cert_chain_and_key_set_cert_chain_from_stuffer(struct s2n_cert_chain_and_key *chain_and_key, struct s2n_stuffer *chain_in_stuffer)
 {
-    return s2n_create_cert_chain_from_stuffer(cert_and_key->cert_chain, chain_in_stuffer);
+    return s2n_create_cert_chain_from_stuffer(chain_and_key->cert_chain, chain_in_stuffer);
 }
 
-int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *cert_and_key, const char *cert_chain_pem)
+int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *chain_and_key, const char *cert_chain_pem)
 {
     struct s2n_stuffer chain_in_stuffer = {{0}};
 
     /* Turn the chain into a stuffer */
     GUARD(s2n_stuffer_alloc_ro_from_string(&chain_in_stuffer, cert_chain_pem));
-    int rc = s2n_cert_chain_and_key_set_cert_chain_from_stuffer(cert_and_key, &chain_in_stuffer);
+    int rc = s2n_cert_chain_and_key_set_cert_chain_from_stuffer(chain_and_key, &chain_in_stuffer);
 
     GUARD(s2n_stuffer_free(&chain_in_stuffer));
 
     return rc;
 }
 
-int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *cert_and_key, const char *private_key_pem)
+int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *chain_and_key, const char *private_key_pem)
 {
     struct s2n_stuffer key_in_stuffer, key_out_stuffer;
     struct s2n_blob key_blob = {0};
 
-    GUARD(s2n_pkey_zero_init(cert_and_key->private_key));
+    GUARD(s2n_pkey_zero_init(chain_and_key->private_key));
 
     /* Put the private key pem in a stuffer */
     GUARD(s2n_stuffer_alloc_ro_from_string(&key_in_stuffer, private_key_pem));
@@ -117,8 +117,35 @@ int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *cert_a
     notnull_check(key_blob.data);
 
     /* Get key type and create appropriate key context */
-    GUARD(s2n_asn1der_to_private_key(cert_and_key->private_key, &key_blob));
+    GUARD(s2n_asn1der_to_private_key(chain_and_key->private_key, &key_blob));
     GUARD(s2n_stuffer_free(&key_out_stuffer));
+
+    return 0;
+}
+
+int s2n_cert_chain_and_key_set_ocsp_data(struct s2n_cert_chain_and_key *chain_and_key, const uint8_t *data, uint32_t length)
+{
+    notnull_check(chain_and_key);
+
+    GUARD(s2n_free(&chain_and_key->ocsp_status));
+    if (data && length) {
+        GUARD(s2n_alloc(&chain_and_key->ocsp_status, length));
+        memcpy_check(chain_and_key->ocsp_status.data, data, length);
+    }
+
+    return 0;
+}
+
+int s2n_cert_chain_and_key_set_sct_list(struct s2n_cert_chain_and_key *chain_and_key, const uint8_t *data, uint32_t length)
+{
+    notnull_check(chain_and_key);
+
+    GUARD(s2n_free(&chain_and_key->sct_list));
+
+    if (data && length) {
+        GUARD(s2n_alloc(&chain_and_key->sct_list, length));
+        memcpy_check(chain_and_key->sct_list.data, data, length);
+    }
 
     return 0;
 }
@@ -126,59 +153,59 @@ int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *cert_a
 struct s2n_cert_chain_and_key *s2n_cert_chain_and_key_new(const char *cert_chain_pem, const char *private_key_pem)
 {
     struct s2n_blob mem, cert_chain_mem, pkey_mem;
-    struct s2n_cert_chain_and_key *cert_and_key;
+    struct s2n_cert_chain_and_key *chain_and_key;
 
     /* Allocate the memory for the chain and key struct */
     GUARD_PTR(s2n_alloc(&mem, sizeof(struct s2n_cert_chain_and_key)));
-    cert_and_key = (struct s2n_cert_chain_and_key *)(void *)mem.data;
+    chain_and_key = (struct s2n_cert_chain_and_key *)(void *)mem.data;
     GUARD_GOTO(s2n_alloc(&cert_chain_mem, sizeof(struct s2n_cert_chain)), failed);
-    cert_and_key->cert_chain = (struct s2n_cert_chain *)(void *)cert_chain_mem.data;
+    chain_and_key->cert_chain = (struct s2n_cert_chain *)(void *)cert_chain_mem.data;
     GUARD_GOTO(s2n_alloc(&pkey_mem, sizeof(s2n_cert_private_key)), failed);
-    cert_and_key->private_key = (s2n_cert_private_key *)(void *)pkey_mem.data;
+    chain_and_key->private_key = (s2n_cert_private_key *)(void *)pkey_mem.data;
 
-    cert_and_key->cert_chain->head = NULL;
-    memset(&cert_and_key->ocsp_status, 0, sizeof(cert_and_key->ocsp_status));
-    memset(&cert_and_key->sct_list, 0, sizeof(cert_and_key->sct_list));
-    GUARD_GOTO(s2n_pkey_zero_init(cert_and_key->private_key), failed);
+    chain_and_key->cert_chain->head = NULL;
+    memset(&chain_and_key->ocsp_status, 0, sizeof(chain_and_key->ocsp_status));
+    memset(&chain_and_key->sct_list, 0, sizeof(chain_and_key->sct_list));
+    GUARD_GOTO(s2n_pkey_zero_init(chain_and_key->private_key), failed);
     
-    GUARD_GOTO(s2n_cert_chain_and_key_set_cert_chain(cert_and_key, cert_chain_pem), failed);
-    GUARD_GOTO(s2n_cert_chain_and_key_set_private_key(cert_and_key, private_key_pem), failed);
+    GUARD_GOTO(s2n_cert_chain_and_key_set_cert_chain(chain_and_key, cert_chain_pem), failed);
+    GUARD_GOTO(s2n_cert_chain_and_key_set_private_key(chain_and_key, private_key_pem), failed);
 
     /* Parse the leaf cert for the public key and certificate type */
     struct s2n_pkey public_key = {{{0}}};
     s2n_cert_type cert_type;
-    GUARD_GOTO(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &cert_and_key->cert_chain->head->raw), failed);
-    GUARD_GOTO(s2n_cert_set_cert_type(cert_and_key->cert_chain->head, cert_type), failed);
+    GUARD_GOTO(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &chain_and_key->cert_chain->head->raw), failed);
+    GUARD_GOTO(s2n_cert_set_cert_type(chain_and_key->cert_chain->head, cert_type), failed);
 
     /* Validate the leaf cert's public key matches the provided private key */
-    int key_match_ret = s2n_pkey_match(&public_key, cert_and_key->private_key);
+    int key_match_ret = s2n_pkey_match(&public_key, chain_and_key->private_key);
     GUARD_GOTO(s2n_pkey_free(&public_key), failed);
     if (key_match_ret < 0) {
         /* s2n_errno already set */
         goto failed;
     }
 
-    return cert_and_key;
+    return chain_and_key;
 
 failed:
-    GUARD_PTR(s2n_cert_chain_and_key_free(cert_and_key));    
+    GUARD_PTR(s2n_cert_chain_and_key_free(chain_and_key));    
     return NULL;
 }
 
-int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *cert_and_key)
+int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *chain_and_key)
 {
-    if (cert_and_key == NULL) {
+    if (chain_and_key == NULL) {
         return 0;
     }
 
     struct s2n_blob b = {
-        .data = (uint8_t *) cert_and_key,
+        .data = (uint8_t *) chain_and_key,
         .size = sizeof(struct s2n_cert_chain_and_key)
     };
 
     /* Walk the chain and free the certs */
-    if (cert_and_key->cert_chain) {
-        struct s2n_cert *node = cert_and_key->cert_chain->head;
+    if (chain_and_key->cert_chain) {
+        struct s2n_cert *node = chain_and_key->cert_chain->head;
         while (node) {
             struct s2n_blob n = {
                 .data = (uint8_t *) node,
@@ -193,9 +220,9 @@ int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *cert_and_key)
         }
     }
     
-    GUARD(s2n_pkey_free(cert_and_key->private_key));
-    GUARD(s2n_free(&cert_and_key->ocsp_status));
-    GUARD(s2n_free(&cert_and_key->sct_list));
+    GUARD(s2n_pkey_free(chain_and_key->private_key));
+    GUARD(s2n_free(&chain_and_key->ocsp_status));
+    GUARD(s2n_free(&chain_and_key->sct_list));
 
     GUARD(s2n_free(&b));
     return 0;
