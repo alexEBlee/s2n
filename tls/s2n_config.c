@@ -600,6 +600,38 @@ int s2n_config_set_cache_delete_callback(struct s2n_config *config, int (*cache_
     return 0;
 }
 
+int s2n_config_set_cert_extension_data(struct s2n_config *config, struct s2n_cert_chain_and_key *updated_chain_and_key, s2n_tls_extension_type type)
+{
+    notnull_check(config);
+    struct s2n_cert_chain_and_key *config_chain_and_key = config->cert_and_key_pairs;
+    notnull_check(config_chain_and_key);
+    notnull_check(updated_chain_and_key);
+
+    /* Make sure we're updating the correct cert chain and key. This will be more complex 
+     * when we add support for multiple certificates */
+    if (config_chain_and_key->cert_chain != updated_chain_and_key->cert_chain ||
+            config_chain_and_key->private_key != updated_chain_and_key->private_key) {
+        S2N_ERROR(S2N_ERR_UPDATING_EXTENSION);
+    }
+
+    switch (type) {
+        case S2N_EXTENSION_CERTIFICATE_TRANSPARENCY:
+            {
+                GUARD(s2n_free(&config_chain_and_key->sct_list));
+                GUARD(s2n_dup(&updated_chain_and_key->sct_list, &config_chain_and_key->sct_list));
+            } break;
+        case S2N_EXTENSION_OCSP_STAPLING:
+            {
+                GUARD(s2n_free(&config_chain_and_key->ocsp_status));
+                GUARD(s2n_dup(&updated_chain_and_key->ocsp_status, &config_chain_and_key->ocsp_status));
+            } break;
+        default:
+            S2N_ERROR(S2N_ERR_UNRECOGNIZED_EXTENSION);
+    }
+
+    return 0;
+}
+
 int s2n_config_set_extension_data(struct s2n_config *config, s2n_tls_extension_type type, const uint8_t *data, uint32_t length)
 {
     notnull_check(config);
@@ -609,28 +641,26 @@ int s2n_config_set_extension_data(struct s2n_config *config, s2n_tls_extension_t
     switch (type) {
         case S2N_EXTENSION_CERTIFICATE_TRANSPARENCY:
             {
-                GUARD(s2n_free(&config->cert_and_key_pairs->sct_list));
+                GUARD(s2n_free(&chain_and_key->sct_list));
 
                 if (data && length) {
-                    GUARD(s2n_alloc(&config->cert_and_key_pairs->sct_list, length));
-                    memcpy_check(config->cert_and_key_pairs->sct_list.data, data, length);
+                    GUARD(s2n_alloc(&chain_and_key->sct_list, length));
+                    memcpy_check(chain_and_key->sct_list.data, data, length);
                 }
             } break;
         case S2N_EXTENSION_OCSP_STAPLING:
             {
-                GUARD(s2n_free(&config->cert_and_key_pairs->ocsp_status));
+                GUARD(s2n_free(&chain_and_key->ocsp_status));
 
                 if (data && length) {
-                    GUARD(s2n_alloc(&config->cert_and_key_pairs->ocsp_status, length));
-                    memcpy_check(config->cert_and_key_pairs->ocsp_status.data, data, length);
+                    GUARD(s2n_alloc(&chain_and_key->ocsp_status, length));
+                    memcpy_check(chain_and_key->ocsp_status.data, data, length);
                 }
             } break;
         default:
             S2N_ERROR(S2N_ERR_UNRECOGNIZED_EXTENSION);
     }
 
-    //TODO: map to s2n_config's notion of chains and keys
-    
     return 0;
 }
 

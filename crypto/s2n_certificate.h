@@ -44,9 +44,11 @@ struct s2n_cert_chain_and_key {
 };
 
 struct s2n_cert_chain_and_key *s2n_cert_chain_and_key_new(const char *cert_chain_pem, const char *private_key_pem);
-int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *cert_and_key);
-int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *cert_and_key, const char *cert_chain_pem);
-int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *cert_and_key, const char *private_key_pem);
+int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *chain_and_key);
+int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *chain_and_key, const char *cert_chain_pem);
+int s2n_cert_chain_and_key_set_private_key(struct s2n_cert_chain_and_key *chain_and_key, const char *private_key_pem);
+int s2n_cert_chain_and_key_set_ocsp_data(struct s2n_cert_chain_and_key *chain_and_key, const uint8_t *data, uint32_t length);
+int s2n_cert_chain_and_key_set_sct_list(struct s2n_cert_chain_and_key *chain_and_key, const uint8_t *data, uint32_t length);
 
 int s2n_cert_public_key_set_rsa_from_openssl(s2n_cert_public_key *cert_pub_key, RSA *rsa);
 int s2n_cert_set_cert_type(struct s2n_cert *cert, s2n_cert_type cert_type);
