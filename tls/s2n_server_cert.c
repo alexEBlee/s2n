@@ -64,7 +64,7 @@ int s2n_server_cert_recv(struct s2n_connection *conn)
 
 int s2n_server_cert_send(struct s2n_connection *conn)
 {
-    GUARD(s2n_send_cert_chain(&conn->handshake.io, &conn->server->server_cert_chain->cert_chain));
+    GUARD(s2n_send_cert_chain(&conn->handshake.io, conn->server->server_cert_chain->cert_chain));
     
     return 0;
 }
