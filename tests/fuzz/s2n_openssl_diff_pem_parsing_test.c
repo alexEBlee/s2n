@@ -86,9 +86,9 @@ static int s2n_parse_cert_chain(struct s2n_stuffer *in)
     struct s2n_cert_chain_and_key chain_and_key;
 
     /* Use s2n_create_cert_chain_from_stuffer() so that \0 characters don't truncate strings. */
-    GUARD(s2n_create_cert_chain_from_stuffer(&chain_and_key, in));
+    GUARD(s2n_create_cert_chain_from_stuffer(chain_and_key.cert_chain, in));
 
-    struct s2n_cert *next = chain_and_key->cert_chain.head;
+    struct s2n_cert *next = chain_and_key.cert_chain->head;
     int chain_len = 0;
     while(next != NULL) {
         chain_len++;

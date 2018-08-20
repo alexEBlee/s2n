@@ -167,9 +167,11 @@ int buffer_write(void *io_context, const uint8_t *buf, uint32_t len)
 }
 
 static struct s2n_config *server_config;
+static struct s2n_cert_chain_and_key *chain_and_key;
 
 static void s2n_server_fuzz_atexit()
 {
+    s2n_cert_chain_and_key_free(chain_and_key);
     s2n_config_free(server_config);
     s2n_cleanup();
 }
@@ -186,7 +188,8 @@ int LLVMFuzzerInitialize(const uint8_t *buf, size_t len)
 
     /* Set up Server Config */
     notnull_check(server_config = s2n_config_new());
-    GUARD(s2n_config_add_cert_chain_and_key(server_config, certificate_chain, private_key));
+    notnull_check(chain_and_key = s2n_cert_chain_and_key_new(certificate_chain, private_key));
+    GUARD(s2n_config_add_cert_chain_and_key(server_config, chain_and_key));
     GUARD(s2n_config_add_dhparams(server_config, dhparams));
 
     return 0;

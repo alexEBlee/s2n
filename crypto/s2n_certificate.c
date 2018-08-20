@@ -80,18 +80,13 @@ int s2n_create_cert_chain_from_stuffer(struct s2n_cert_chain *cert_chain_out, st
     return 0;
 }
 
-int s2n_cert_chain_and_key_set_cert_chain_from_stuffer(struct s2n_cert_chain_and_key *chain_and_key, struct s2n_stuffer *chain_in_stuffer)
-{
-    return s2n_create_cert_chain_from_stuffer(chain_and_key->cert_chain, chain_in_stuffer);
-}
-
 int s2n_cert_chain_and_key_set_cert_chain(struct s2n_cert_chain_and_key *chain_and_key, const char *cert_chain_pem)
 {
     struct s2n_stuffer chain_in_stuffer = {{0}};
 
     /* Turn the chain into a stuffer */
     GUARD(s2n_stuffer_alloc_ro_from_string(&chain_in_stuffer, cert_chain_pem));
-    int rc = s2n_cert_chain_and_key_set_cert_chain_from_stuffer(chain_and_key, &chain_in_stuffer);
+    int rc = s2n_create_cert_chain_from_stuffer(chain_and_key->cert_chain, &chain_in_stuffer);
 
     GUARD(s2n_stuffer_free(&chain_in_stuffer));
 

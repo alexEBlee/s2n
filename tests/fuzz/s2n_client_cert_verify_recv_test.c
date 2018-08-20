@@ -119,11 +119,13 @@ static char private_key[] =
 static const uint8_t TLS_VERSIONS[] = {S2N_TLS10, S2N_TLS11, S2N_TLS12};
 
 static struct s2n_config *server_config;
+static struct s2n_cert_chain_and_key *chain_and_key;
 static struct s2n_pkey public_key;
 
 static void s2n_fuzz_atexit()
 {
     s2n_pkey_free(&public_key);
+    s2n_cert_chain_and_key_free(chain_and_key);
     s2n_config_free(server_config);
     s2n_cleanup();
 }
@@ -140,10 +142,11 @@ int LLVMFuzzerInitialize(const uint8_t *buf, size_t len)
 
     /* Set up Server Config */
     server_config = s2n_config_new();
-    GUARD(s2n_config_add_cert_chain_and_key(server_config, certificate_chain, private_key));
+    chain_and_key = s2n_cert_chain_and_key_new(certificate_chain, private_key);
+    GUARD(s2n_config_add_cert_chain_and_key(server_config, chain_and_key));
 
     s2n_cert_type cert_type;
-    GUARD(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &server_config->cert_and_key_pairs->cert_chain.head->raw));
+    GUARD(s2n_asn1der_to_public_key_and_type(&public_key, &cert_type, &server_config->cert_and_key_pairs->cert_chain->head->raw));
     
     return 0;
 }

@@ -161,7 +161,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t len)
     /* Set up Server Config */
     struct s2n_config *server_config;
     notnull_check(server_config = s2n_config_new());
-    GUARD(s2n_config_add_cert_chain_and_key(server_config, certificate_chain, private_key));
+
+    struct s2n_cert_chain_and_key *chain_and_key;
+    notnull_check(chain_and_key = s2n_cert_chain_and_key_new(certificate_chain, private_key));
+    GUARD(s2n_config_add_cert_chain_and_key(server_config, chain_and_key));
     GUARD(s2n_config_add_dhparams(server_config, dhparams));
 
     /* Set up Server Connection */
@@ -208,6 +211,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t len)
         GUARD(close(client_to_server[i]));
     }
 
+    GUARD(s2n_cert_chain_and_key_free(chain_and_key));
     GUARD(s2n_config_free(server_config));
     GUARD(s2n_connection_free(server_conn));
     GUARD(s2n_connection_free(client_conn));
