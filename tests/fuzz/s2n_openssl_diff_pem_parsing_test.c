@@ -95,6 +95,7 @@ static int s2n_parse_cert_chain(struct s2n_stuffer *in)
         next = next->next;
     }
 
+    GUARD(s2n_cert_chain_and_key_free(&chain_and_key));
     return chain_len;
 }
 
