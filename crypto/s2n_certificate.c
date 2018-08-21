@@ -214,8 +214,19 @@ int s2n_cert_chain_and_key_free(struct s2n_cert_chain_and_key *chain_and_key)
             GUARD(s2n_free(&n));
         }
     }
-    
+    struct s2n_blob c = {
+        .data = (uint8_t *) chain_and_key->cert_chain,
+        .size = sizeof(struct s2n_cert_chain)
+    };
+    GUARD(s2n_free(&c));
+
+    struct s2n_blob k = {
+        .data = (uint8_t *) chain_and_key->private_key,
+        .size = sizeof(s2n_cert_private_key)
+    };
     GUARD(s2n_pkey_free(chain_and_key->private_key));
+    GUARD(s2n_free(&k));
+
     GUARD(s2n_free(&chain_and_key->ocsp_status));
     GUARD(s2n_free(&chain_and_key->sct_list));
 
